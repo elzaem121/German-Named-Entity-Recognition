@@ -1,9 +1,31 @@
-# 🇩🇪 German Named Entity Recognition (Task 4)
-### Frozen Transformer + BiLSTM + CRF
+# 🇩🇪 German Named Entity Recognition  
+### Frozen Transformer + BiLSTM + CRF  
+
 
 ---
 
-## 🏆 Competition Achievement
+## 🚀 Project Summary
+
+This project implements a complete, competition-grade German Named Entity Recognition (NER) system under strict architectural constraints.
+
+The system:
+
+- Uses a large pretrained German Transformer as a **frozen feature extractor**
+- Trains a lightweight structured prediction head
+- Achieves **0.87 Macro-F1** in competitive evaluation
+- Maintains full reproducibility and submission compliance
+
+This repository demonstrates practical ML engineering skills in:
+
+- Transformer feature extraction
+- Sequence modeling
+- Structured decoding (CRF)
+- Robust preprocessing pipelines
+- Submission packaging & deployment constraints
+
+---
+
+## 🏆 Competition Result
 
 | Metric | Value |
 |--------|--------|
@@ -12,139 +34,218 @@
 | Participants | 28 |
 | Score | 100 / 100 |
 
-📌 The model achieved performance above the 85% reference level and obtained the maximum score.
+📌 Performance exceeded the expected 85% range while respecting all constraints.
 
 ![Leaderboard Result](./leaderboard1.jpeg)
 
 ---
 
-## 🎯 Task Description
+# 🎯 Problem Definition
 
-The goal of this task is to build a neural network for **German Named Entity Recognition (NER)**.
+Given tokenized German text, predict BIO entity labels for:
 
-The system must identify the following entity types:
+- **PER** (Person)
+- **ORG** (Organization)
+- **LOC** (Location)
 
-- **PER** – Person  
-- **ORG** – Organization  
-- **LOC** – Location  
+### Constraints
 
-Participants are allowed to use pretrained language models (up to 1B parameters) as a backbone.  
-However, these models **must not be fine-tuned for NER**.
+- Pretrained models allowed (≤1B parameters)
+- Encoder **must not be fine-tuned**
+- Reproducible code submission required
+- Individual implementation
 
----
-
-## 📏 Evaluation Metric
-
-Performance is evaluated using **F1-Score**, computed separately for:
-
-- F1_PER
-- F1_ORG
-- F1_LOC
-
-Final score:
+Evaluation:
 
 \[
-Macro-F1 = (F1_{PER} + F1_{ORG} + F1_{LOC}) / 3
+Macro-F1 = \frac{F1_{PER} + F1_{ORG} + F1_{LOC}}{3}
 \]
 
-Reference systems achieve around **85% F1**.
+---
 
-### ✅ Final Result
+# 🧩 System Architecture Overview
 
 ```
-Macro-F1 = 0.87
+TSV Input
+   ↓
+Robust Sentence Parsing
+   ↓
+Subword Alignment
+   ↓
+Frozen Transformer (Gelectra-Large)
+   ↓
+Layer Concatenation (4096-dim)
+   ↓
+Projection + GELU + Dropout
+   ↓
+BiLSTM
+   ↓
+Linear Layer
+   ↓
+CRF (Structured Decoding)
+   ↓
+BIO Tag Output
 ```
-
-The model performs above the reference range.
 
 ---
 
-## 🏗 System Design
+# 🧠 1️⃣ Feature Extraction Strategy
 
-This solution follows a **Frozen Transformer + Trainable Sequence Head** architecture.
-
-Design philosophy:
-
-- Use a strong pretrained German encoder for contextual representations.
-- Keep encoder frozen to comply with task rules.
-- Train a structured prediction head on top.
-- Use CRF for sequence-level consistency.
-
----
-
-## 🧠 Model Architecture
-
-### 1️⃣ Frozen Backbone
+### Backbone
 
 - Model: `deepset/gelectra-large`
 - Hidden size: 1024
-- Last 4 hidden layers concatenated → 4096-dim representation
-- Backbone parameters remain frozen
+- Last 4 layers concatenated → 4096 features
+- Fully frozen (no fine-tuning)
 
-Total encoder parameters: ~334M
+Total parameters: ~338M (<1B constraint)
 
----
+### Engineering Rationale
 
-### 2️⃣ Trainable NER Head
+- Preserve pretrained linguistic knowledge
+- Prevent catastrophic forgetting
+- Avoid overfitting
+- Transfer high-quality contextual embeddings into task-specific head
 
-Pipeline:
-
-```
-Frozen Transformer Output
-        ↓
-Last 4 Layers Concatenation (4096)
-        ↓
-Linear(4096 → 512) + GELU + Dropout(0.5)
-        ↓
-BiLSTM (hidden=256, bidirectional)
-        ↓
-Linear → 7 BIO tags
-        ↓
-CRF (sequence decoding)
-```
-
-Trainable head parameters: ~3.6M  
-Total parameters: ~338M (within 1B constraint)
+This mirrors real-world production scenarios where large encoders are reused across tasks.
 
 ---
 
-## 🔄 Data Processing
+# 🏗 2️⃣ Sequence Modeling Head
 
-- Input format: TSV files
-- Sentence boundaries detected by empty lines
-- Non-target entity types mapped to `O`
-- Labels used:
-  - `O`
-  - `B/I-PER`
-  - `B/I-ORG`
-  - `B/I-LOC`
+### Architecture
 
-Word alignment strategy:
-- Only first subword of each word contributes to word-level prediction.
+- Linear(4096 → 512)
+- GELU activation
+- Dropout (0.5)
+- BiLSTM (bidirectional, hidden=256)
+- Linear → BIO logits
+- CRF layer
+
+### Why CRF?
+
+- Enforces valid BIO transitions
+- Prevents illegal sequences (e.g., I-ORG without B-ORG)
+- Improves entity boundary consistency
+
+### Why BiLSTM on top of Transformer?
+
+Because encoder is frozen:
+
+- Head must learn sequence adaptation
+- LSTM captures bidirectional contextual refinement
+- Improves boundary decisions
 
 ---
 
-## ⚙️ Training Configuration
+# 🧹 3️⃣ Data Engineering & Alignment
+
+### Robust TSV Parsing
+
+- Skips comment lines (`#`)
+- Detects sentence boundaries via empty rows
+- Reconstructs clean token sequences
+
+### Label Cleaning Strategy
+
+Retained:
+- PER
+- ORG
+- LOC
+
+Mapped to `O`:
+- OTH
+- part
+- deriv
+
+Ensures strict evaluation alignment.
+
+### Subword Alignment
+
+- Used `tokenizer.word_ids()`
+- Only first subword used per token
+- Constructed `word_mask` to:
+  - Ignore padding
+  - Ignore non-first subwords
+  - Preserve 1:1 token-label mapping
+
+This avoids label duplication artifacts.
+
+---
+
+# ⚙️ 4️⃣ Training Strategy
 
 | Component | Value |
 |------------|---------|
-| Max sequence length | 128 |
-| Train batch size | 8 |
-| Validation batch size | 16 |
-| Epochs | 10 |
 | Optimizer | AdamW |
-| Learning rate | 3e-4 |
-| Weight decay | 0.01 |
+| Learning Rate | 3e-4 |
 | Scheduler | OneCycleLR |
 | Dropout | 0.5 |
+| Gradient Clipping | 1.0 |
+| Epochs | 10 |
 
-Loss configuration:
-- CRF loss (primary)
-- Weighted CE scaffolding available
+### Loss
+
+- CRF Loss (final model)
+
+### Evaluation
+
+- `seqeval`
+- Strict span-based entity evaluation
+
+### Early Stopping
+
+- Based on Validation Macro-F1
 
 ---
 
-## 📊 Validation Performance (Notebook Run)
+# 🛡 5️⃣ Generalization & Robustness Design
+
+This system intentionally favors **stability over aggressive recall boosting**.
+
+Key decisions:
+
+- Frozen encoder to reduce overfitting
+- High dropout
+- No oversampling
+- Gradient clipping
+- Conservative decision boundaries
+
+Observed challenge:
+
+Capitalized common nouns in German (e.g., *Arbeit*, *Liga*, *BA*) increase FP risk.
+
+Model tuned to reduce false positives rather than inflate recall artificially.
+
+---
+
+# 💾 6️⃣ Deployment-Oriented Submission Design
+
+### Saved Artifacts
+
+- `head.pt`
+- Encoder serialized in FP16 (size optimization)
+
+### Inference Engineering
+
+- Encoder restored to FP32 on CPU
+- Custom CRF decoding (no external torchcrf dependency)
+- Deterministic inference
+- 1 label per token guaranteed
+
+### API
+
+```python
+Model().predict(np.ndarray[str]) -> np.ndarray[str]
+```
+
+CPU-safe execution.
+
+---
+
+# 📊 Performance Summary
+
+Notebook Validation:
 
 | Metric | Score |
 |---|---:|
@@ -159,82 +260,39 @@ Competition Evaluation:
 Macro-F1 = 0.87
 ```
 
-The slight drop indicates realistic generalization to hidden test data.
+Performance remains strong under hidden distribution.
 
 ---
 
-## 📦 Submission Compliance
-
-- Pretrained model not fine-tuned for NER
-- Total parameters < 1B
-- Individual submission
-- Reproducible GitLab project provided
-- Submission package validated via dynamic import test
-- ZIP size: ~603MB
-
----
-
-## 📂 Repository Structure
+# 📂 Repository Structure
 
 ```
 task-4/
 ├── task_4.ipynb
 ├── model.py
 ├── requirements.txt
-├── public_data-4/
 ├── submission/
 │   ├── model.py
 │   └── weights/
-├── best_head_weighted.pt
 └── submission.zip
 ```
 
 ---
 
-## 🚀 Reproducibility
+# 🔎 What This Project Demonstrates (For ML Engineer Roles)
 
-```
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install torchcrf
-```
-
-Run:
-
-```
-jupyter notebook task_4.ipynb
-```
-
-Notebook exports:
-
-- Encoder weights
-- NER head weights
-- Submission package
+✔ Transformer feature engineering  
+✔ Sequence labeling systems  
+✔ Structured prediction (CRF)  
+✔ Training stabilization techniques  
+✔ Reproducible ML pipelines  
+✔ Deployment packaging & constraint compliance  
+✔ Performance trade-off awareness  
 
 ---
 
-## 🧩 Engineering Highlights
+# 👤 Author
 
-- Frozen large-scale transformer feature extractor
-- Multi-layer feature fusion
-- BiLSTM sequence modeling
-- CRF decoding for structured output
-- Data augmentation via entity swapping
-- Controlled regularization
-
----
-
-## 🔍 Key Insights
-
-- Freezing a large encoder still yields strong NER performance.
-- CRF improves boundary consistency in BIO tagging.
-- ORG entities remain the hardest class (lower F1 than PER/LOC).
-- Layer concatenation significantly boosts representation quality.
-
----
-
-## 👤 Author
-
-Mohamed Elsayed
+Mohamed  
 M.Sc. Data Science  
+Focus: NLP, Deep Learning, Applied ML Engineering
