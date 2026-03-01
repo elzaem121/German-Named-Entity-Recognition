@@ -217,29 +217,7 @@ Capitalized common nouns in German (e.g., *Arbeit*, *Liga*, *BA*) increase FP ri
 
 Model tuned to reduce false positives rather than inflate recall artificially.
 
----
 
-# 💾 6️⃣ Deployment-Oriented Submission Design
-
-### Saved Artifacts
-
-- `head.pt`
-- Encoder serialized in FP16 (size optimization)
-
-### Inference Engineering
-
-- Encoder restored to FP32 on CPU
-- Custom CRF decoding (no external torchcrf dependency)
-- Deterministic inference
-- 1 label per token guaranteed
-
-### API
-
-```python
-Model().predict(np.ndarray[str]) -> np.ndarray[str]
-```
-
-CPU-safe execution.
 
 ---
 
@@ -293,6 +271,6 @@ task-4/
 
 # 👤 Author
 
-Mohamed  
+Mohamed Elsayed
 M.Sc. Data Science  
-Focus: NLP, Deep Learning, Applied ML Engineering
+
