@@ -37,3 +37,6 @@ _tmp_check_submission/
 # Generated submission folders
 submission/
 final_submission/
+
+# Local/public datasets (can be re-downloaded)
+public_data-4/
