@@ -242,32 +242,7 @@ Performance remains strong under hidden distribution.
 
 ---
 
-# 📂 Repository Structure
 
-```
-task-4/
-├── task_4.ipynb
-├── model.py
-├── requirements.txt
-├── submission/
-│   ├── model.py
-│   └── weights/
-└── submission.zip
-```
-
----
-
-# 🔎 What This Project Demonstrates (For ML Engineer Roles)
-
-✔ Transformer feature engineering  
-✔ Sequence labeling systems  
-✔ Structured prediction (CRF)  
-✔ Training stabilization techniques  
-✔ Reproducible ML pipelines  
-✔ Deployment packaging & constraint compliance  
-✔ Performance trade-off awareness  
-
----
 
 # 👤 Author
 
